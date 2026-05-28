@@ -22,7 +22,7 @@ SUPABASE_SERVICE_ROLE_KEY
 ## Supabase 적용 순서
 
 1. Supabase SQL Editor에서 `supabase/migrations/202605280001_datadiction_mvp.sql` 실행
-2. Supabase SQL Editor에서 `supabase/seed/_mvp_seed.sql` 실행
+2. Supabase SQL Editor에서 `supabase/seed/datadiction_mvp_seed.sql` 실행
 3. Vercel에 환경변수 등록
 4. Vercel 재배포
 5. `/`, `/analysis`, `/datasets`, `/scenes/SCN_0001` 확인
@@ -48,7 +48,7 @@ supabase db push
 Seed SQL은 Supabase CLI 환경에 따라 직접 SQL Editor에서 실행하거나, DB 접속 문자열을 가진 환경에서 `psql`로 실행한다.
 
 ```bash
-psql "$SUPABASE_DB_URL" -f supabase/seed/_mvp_seed.sql
+psql "$SUPABASE_DB_URL" -f supabase/seed/datadiction_mvp_seed.sql
 ```
 
 Vercel CLI 배포 흐름:
@@ -62,7 +62,7 @@ vercel env add SUPABASE_SERVICE_ROLE_KEY production
 vercel deploy --prod
 ```
 
-GitHub 연동 배포를 쓰는 경우에는 Vercel 대시보드에서 `pcs039/mobile-newsletter-cms` 저장소를 import하고 같은 환경변수를 등록한다.
+GitHub 연동 배포를 쓰는 경우에는 이 독립 폴더를 별도 GitHub 저장소로 push한 뒤 Vercel 대시보드에서 해당 저장소를 import하고 같은 환경변수를 등록한다.
 
 ## 추가된 테이블
 
