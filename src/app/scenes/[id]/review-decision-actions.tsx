@@ -6,8 +6,18 @@ import { useState, useTransition } from "react";
 type ReviewDecision = "label_revision" | "hold" | "confirm";
 
 type Message = {
-  tone: "success" | "error";
+  tone: "success" | "warning" | "error";
   text: string;
+};
+
+type ReviewResponse = {
+  afterStatus?: string;
+  beforeStatus?: string;
+  detail?: string | null;
+  error?: string | null;
+  message?: string;
+  partialSuccess?: boolean;
+  success?: boolean;
 };
 
 const reviewActions: {
@@ -77,14 +87,26 @@ export function ReviewDecisionActions({
           body: JSON.stringify({ decision }),
         },
       );
-      const payload = (await response.json().catch(() => null)) as {
-        afterStatus?: string;
-        beforeStatus?: string;
-        error?: string;
-        message?: string;
-      } | null;
+      const payload = (await response.json().catch(() => null)) as ReviewResponse | null;
+      const statusChange =
+        (payload?.beforeStatus ?? currentStatus) +
+        " -> " +
+        (payload?.afterStatus ?? "updated");
 
-      if (!response.ok) {
+      if (payload?.partialSuccess) {
+        setMessage({
+          tone: "warning",
+          text:
+            (payload.error ?? "상태는 변경됐지만 이력 기록 일부가 실패했습니다.") +
+            " " +
+            statusChange +
+            (payload.detail ? " 상세: " + payload.detail : ""),
+        });
+        startTransition(() => router.refresh());
+        return;
+      }
+
+      if (!response.ok || payload?.success === false) {
         throw new Error(payload?.error ?? "Review decision 저장에 실패했습니다.");
       }
 
@@ -93,9 +115,7 @@ export function ReviewDecisionActions({
         text:
           (payload?.message ?? "Review decision이 저장되었습니다.") +
           " " +
-          (payload?.beforeStatus ?? currentStatus) +
-          " -> " +
-          (payload?.afterStatus ?? "updated"),
+          statusChange,
       });
       startTransition(() => router.refresh());
     } catch (error) {
@@ -138,7 +158,9 @@ export function ReviewDecisionActions({
             "rounded-lg border p-3 text-sm font-semibold " +
             (message.tone === "success"
               ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
-              : "border-rose-300/25 bg-rose-400/10 text-rose-100")
+              : message.tone === "warning"
+                ? "border-amber-300/25 bg-amber-400/10 text-amber-100"
+                : "border-rose-300/25 bg-rose-400/10 text-rose-100")
           }
         >
           {message.text}

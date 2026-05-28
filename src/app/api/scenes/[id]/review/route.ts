@@ -8,6 +8,19 @@ type SceneRow = {
   review_status: string;
 };
 
+type FailureStage =
+  | "configuration"
+  | "request_body"
+  | "validation"
+  | "scene_lookup"
+  | "status_update"
+  | "history_insert";
+
+type HistoryFailure = {
+  step: "datadiction_reviews" | "datadiction_audit_events";
+  message: string;
+};
+
 const reviewDecisions: Record<
   ReviewDecision,
   {
@@ -37,8 +50,28 @@ const reviewDecisions: Record<
   },
 };
 
-function jsonError(message: string, status: number) {
-  return Response.json({ error: message }, { status });
+function jsonFailure(
+  message: string,
+  status: number,
+  failureStage: FailureStage,
+  detail = message,
+) {
+  return Response.json(
+    {
+      success: false,
+      partialSuccess: false,
+      error: message,
+      detail,
+      failureStage,
+    },
+    { status },
+  );
+}
+
+function historyFailureDetail(failures: HistoryFailure[]) {
+  return failures
+    .map((failure) => failure.step + ": " + failure.message)
+    .join(" / ");
 }
 
 function getSupabaseAdminClient() {
@@ -76,14 +109,18 @@ export async function POST(
   const client = getSupabaseAdminClient();
 
   if (!client) {
-    return jsonError("Supabase 서버 환경변수가 없어 review decision을 저장할 수 없습니다.", 500);
+    return jsonFailure(
+      "Supabase 서버 환경변수가 없어 review decision을 저장할 수 없습니다.",
+      500,
+      "configuration",
+    );
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return jsonError("요청 본문을 읽을 수 없습니다.", 400);
+    return jsonFailure("요청 본문을 읽을 수 없습니다.", 400, "request_body");
   }
 
   const decision = parseDecision(
@@ -93,7 +130,7 @@ export async function POST(
   );
 
   if (!decision) {
-    return jsonError("지원하지 않는 review decision입니다.", 400);
+    return jsonFailure("지원하지 않는 review decision입니다.", 400, "validation");
   }
 
   const nextDecision = reviewDecisions[decision];
@@ -105,27 +142,48 @@ export async function POST(
     .maybeSingle();
 
   if (sceneError) {
-    return jsonError("원본 scene row 조회에 실패했습니다: " + sceneError.message, 500);
+    return jsonFailure(
+      "원본 scene row 조회에 실패했습니다.",
+      500,
+      "scene_lookup",
+      sceneError.message,
+    );
   }
 
   if (!scene) {
-    return jsonError("요청한 scene id를 찾을 수 없습니다.", 404);
+    return jsonFailure("요청한 scene id를 찾을 수 없습니다.", 404, "scene_lookup");
   }
 
   const sceneRow = scene as SceneRow;
   const previousStatus = sceneRow.review_status;
   const nextStatus = nextDecision.status;
 
-  const { error: updateError } = await client
+  const { data: updatedScene, error: updateError } = await client
     .from("datadiction_scenes")
     .update({
       review_status: nextStatus,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", sceneRow.id);
+    .eq("id", sceneRow.id)
+    .select("id, review_status")
+    .maybeSingle();
 
   if (updateError) {
-    return jsonError("review_status 업데이트에 실패했습니다: " + updateError.message, 500);
+    return jsonFailure(
+      "review_status 업데이트에 실패했습니다.",
+      500,
+      "status_update",
+      updateError.message,
+    );
+  }
+
+  if (!updatedScene) {
+    return jsonFailure(
+      "review_status 업데이트 결과를 확인할 수 없습니다.",
+      500,
+      "status_update",
+      "datadiction_scenes update가 성공 응답을 반환했지만 갱신된 row를 확인하지 못했습니다.",
+    );
   }
 
   const { error: reviewError } = await client.from("datadiction_reviews").insert({
@@ -137,8 +195,13 @@ export async function POST(
     comment: nextDecision.comment,
   });
 
+  const historyFailures: HistoryFailure[] = [];
+
   if (reviewError) {
-    return jsonError("review 이력 저장에 실패했습니다: " + reviewError.message, 500);
+    historyFailures.push({
+      step: "datadiction_reviews",
+      message: reviewError.message,
+    });
   }
 
   const detail = sceneRow.scene_code + " review_status: " + previousStatus + " -> " + nextStatus;
@@ -151,10 +214,35 @@ export async function POST(
   });
 
   if (auditError) {
-    return jsonError("audit event 저장에 실패했습니다: " + auditError.message, 500);
+    historyFailures.push({
+      step: "datadiction_audit_events",
+      message: auditError.message,
+    });
+  }
+
+  if (historyFailures.length > 0) {
+    return Response.json(
+      {
+        success: false,
+        partialSuccess: true,
+        error: "상태는 변경됐지만 이력 기록 일부가 실패했습니다.",
+        detail: historyFailureDetail(historyFailures),
+        failureStage: "history_insert",
+        historyFailures,
+        message: "Review status는 " + nextStatus + "로 변경되었습니다.",
+        sceneId: sceneRow.scene_code,
+        beforeStatus: previousStatus,
+        afterStatus: nextStatus,
+      },
+      { status: 207 },
+    );
   }
 
   return Response.json({
+    success: true,
+    partialSuccess: false,
+    error: null,
+    detail: "datadiction_scenes, datadiction_reviews, datadiction_audit_events 저장 완료",
     message: "Review decision이 저장되었습니다.",
     sceneId: sceneRow.scene_code,
     beforeStatus: previousStatus,
