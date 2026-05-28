@@ -1,8 +1,8 @@
 # DataDiction MVP
 
-DataDiction MVP is a standalone Next.js application for validating the first product flow of DataDiction / SceneContext Engine. It provides a dashboard-style interface for B2B AI data diagnostics, dataset registry review, scene-context analysis, risk diagnostics, reports, settings, and audit logs.
+DataDiction MVP is a standalone Next.js application for validating the first product flow of DataDiction / SceneContext Engine. It is a first-pass operations-console PoC for B2B AI data diagnostics, dataset registry review, scene-context analysis, risk diagnostics, report drafting, video upload intake, settings, and audit logs.
 
-The app is deployed on Vercel and reads seeded MVP data from Supabase when the required server environment variables are available. When Supabase cannot be reached, the app falls back to built-in demo data and shows that state in the UI.
+The app is deployed on Vercel and reads MVP data from Supabase when the required server environment variables are available. When Supabase cannot be reached, the app falls back to built-in demo data and shows that state in the UI.
 
 ## Deployment URL
 
@@ -27,8 +27,17 @@ The MVP currently reads from these Supabase resources:
 | App area | Query function | Supabase resource |
 | --- | --- | --- |
 | Datasets | `getDataDictionDatasetsResult` | `datadiction_datasets` table |
+| Uploaded videos queue | `getDataDictionUploadedVideosResult` | `datadiction_videos` + `datadiction_datasets` tables |
 | Audit logs | `getDataDictionAuditEventsResult` | `datadiction_audit_events` table |
 | Analysis / diagnostics / scene data | `getDataDictionScenesResult` | `datadiction_scene_overview` view |
+
+Server route handlers also write to:
+
+- `datadiction_datasets`
+- `datadiction_videos`
+- `datadiction_reviews`
+- `datadiction_audit_events`
+- Supabase Storage bucket `datadiction-assets`
 
 The SQL setup files are:
 
@@ -100,23 +109,70 @@ When fallback mode is active, the page also shows a short notice explaining the 
 
 The current MVP includes:
 
-- B2B AI data diagnostics dashboard UI.
-- Dataset registry and review coverage view.
-- SceneContext analysis workspace with ingestion form, processing pipeline, scene preview, and selected inference panel.
+- Supabase-backed B2B AI data diagnostics dashboard.
+- Dataset registry, dataset detail pages, and review coverage view.
+- Scene detail pages backed by `datadiction_scene_overview`.
+- Review Decision actions that update `datadiction_scenes.review_status`.
+- Review history inserts into `datadiction_reviews`.
+- Audit log inserts into `datadiction_audit_events`.
+- SceneContext analysis workspace with video ingestion form, uploaded videos queue, processing pipeline, scene preview, and selected inference panel.
+- Video upload Stub to Supabase Storage.
+- Uploaded Videos / Not processed queue for recently uploaded files.
+- Clear separation between Scene Package Preview and the upload queue.
 - Rights, ethics, and context-risk diagnostics screen.
+- Data Suitability Statement draft generation from current Supabase data.
 - Report list and report generation entry points.
 - Settings screen for organization and model policy configuration.
 - Audit log timeline for traceability.
-- Supabase-backed MVP data reads with demo fallback behavior.
+- Audit event timestamp display in KST.
+- Supabase-backed MVP data reads with demo fallback behavior and Live Supabase / Demo fallback badges.
+- Legacy `/datadiction` route redirects to root-based routes.
 - Vercel production deployment.
+
+## Video Upload Stub
+
+The MVP supports a first-pass video upload Stub from `/analysis`.
+
+What it does:
+
+- Uploads the selected video file to Supabase Storage bucket `datadiction-assets`.
+- Creates a new `datadiction_datasets` row with status `UPLOADED`.
+- Creates a linked `datadiction_videos` row with `file_name`, `file_format`, `source_type`, `rights_note`, and `storage_path`.
+- Writes an upload event to `datadiction_audit_events`.
+- Shows the uploaded item in `/analysis` under `Uploaded Videos / Not processed queue`.
+- Reflects uploaded datasets in the Dashboard as analysis-pending data.
+
+What it does not do yet:
+
+- Uploaded videos are registered as pre-analysis assets only.
+- No `datadiction_scenes` rows are created by the upload Stub.
+- No `datadiction_scene_overview` rows are created by the upload Stub.
+- Uploaded videos therefore do not appear in Scene Package Preview until a later preprocessing and inference pipeline creates scene-level records.
+
+Large video files are not recommended yet because Vercel and Supabase request/storage limits may apply. Use small sample files for MVP checks.
+
+## Not Yet Implemented
+
+The following are intentionally outside the current MVP scope:
+
+- Scene segmentation.
+- STT.
+- Frame extraction.
+- AI auto-analysis.
+- Video playback.
+- Signed URL preview or download flow.
+- Background job queue.
+- Production-grade upload processing, retry, and cleanup workflow.
+
+During the cooperation period, AI engineering talent is expected to connect the preprocessing and inference pipeline that turns uploaded videos into scene-level records, inference outputs, and review candidates.
 
 ## Next Development Tasks
 
 Recommended next tasks:
 
-- Connect video upload to Supabase Storage.
+- Connect preprocessing outputs so uploaded videos create `datadiction_scenes` and `datadiction_scene_overview` records.
 - Implement an analysis route handler or background job for SceneContext inference.
-- Persist reviewer label edits and approvals to `datadiction_reviews`.
+- Add upload retry/cleanup handling for partial Storage or DB failures.
 - Add Supabase Auth and role-based access for reviewers and admins.
 - Add read policies or API boundaries if moving away from service-role-only server reads.
 - Generate downloadable reports as PDF, CSV, or Excel files.
