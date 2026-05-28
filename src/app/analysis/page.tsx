@@ -10,12 +10,81 @@ import {
   toneStyles,
 } from "../components";
 import type { Tone } from "../data";
-import { getDataDictionScenesResult } from "../queries";
+import {
+  getDataDictionScenesResult,
+  getDataDictionUploadedVideosResult,
+  type DataSourceStatus,
+  type UploadedVideoQueueItem,
+} from "../queries";
 import { VideoUploadForm } from "./video-upload-form";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function UploadedVideosQueue({
+  status,
+  videos,
+}: {
+  status: DataSourceStatus;
+  videos: UploadedVideoQueueItem[];
+}) {
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Uploaded Videos / Not processed queue</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            최근 datadiction_videos와 datadiction_datasets에 등록된 업로드 항목입니다.
+            scenes_count가 0이면 아직 자동 장면 분석 전 상태로 표시합니다.
+          </p>
+        </div>
+        <DataSourceBadge status={status} />
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        {videos.length > 0 ? (
+          videos.map((video) => (
+            <div
+              key={video.datasetCode + video.fileName}
+              className="grid gap-3 rounded-lg border border-white/10 bg-white/5 p-4 lg:grid-cols-[1.15fr_1fr_auto]"
+            >
+              <div>
+                <p className="text-sm font-bold text-sky-200">{video.datasetCode}</p>
+                <h3 className="mt-1 font-bold text-slate-100">{video.datasetName}</h3>
+                <p className="mt-1 text-sm text-slate-500">{video.fileName}</p>
+              </div>
+              <div className="text-sm leading-6 text-slate-400">
+                <p>Source type: {video.sourceType}</p>
+                <p>Status: {video.datasetStatus}</p>
+                <p>Storage path: {video.hasStoragePath ? "recorded" : "missing"}</p>
+              </div>
+              <div className="flex flex-col items-start gap-2 lg:items-end">
+                <span className="rounded-full bg-amber-400/12 px-3 py-1 text-xs font-bold text-amber-200 ring-1 ring-amber-300/25">
+                  {video.scenesCount === 0
+                    ? "자동 장면 분석 전 상태"
+                    : video.scenesCount + " scenes"}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">{video.uploadedAt}</span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-500">
+            최근 업로드된 영상이 없습니다.
+          </p>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 export default async function AnalysisPage() {
-  const { data: sceneList, status: dataStatus } =
-    await getDataDictionScenesResult();
+  const [scenesResult, uploadedVideosResult] = await Promise.all([
+    getDataDictionScenesResult(),
+    getDataDictionUploadedVideosResult(),
+  ]);
+  const { data: sceneList, status: dataStatus } = scenesResult;
+  const { data: uploadedVideos, status: uploadedVideosStatus } = uploadedVideosResult;
   const selectedScene = sceneList[0];
   const inferenceFields: { label: string; value: string; tone: Tone }[] = [
     ["Relation", selectedScene.relation, "blue"],
@@ -56,9 +125,16 @@ export default async function AnalysisPage() {
         </Panel>
       </section>
 
+      <UploadedVideosQueue status={uploadedVideosStatus} videos={uploadedVideos} />
+
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Panel>
           <h2 className="text-xl font-bold">Scene Package Preview</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            이 영역은 datadiction_scene_overview 기반 장면 패키지를 표시합니다. 업로드 직후
+            dataset/video만 등록된 파일은 장면 분할 전 상태이므로 아래 preview에는 나타나지
+            않습니다.
+          </p>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             {[
               ["Representative Frames", "시골길, 주택, 논밭, 고령 주민"],

@@ -48,6 +48,13 @@ function buildDashboardMetrics(summary: DashboardSummary): Metric[] {
       tone: "blue",
     },
     {
+      label: "Uploaded Datasets",
+      value: formatCount(summary.uploadedDatasetsTotal),
+      delta: "analysis pending",
+      caption: "UPLOADED/NOT_PROCESSED 또는 scene 0건",
+      tone: summary.uploadedDatasetsTotal > 0 ? "gold" : "green",
+    },
+    {
       label: "Review Pending",
       value: formatCount(summary.pendingReviewTotal),
       delta: "pending",
@@ -177,7 +184,7 @@ export default async function DataDictionDashboardPage() {
 
       <DataSourceNotice status={dataStatus} />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {dashboardMetrics.map((metric) => (
           <MetricCard key={metric.label} metric={metric} />
         ))}

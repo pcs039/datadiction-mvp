@@ -56,6 +56,23 @@ type AuditEventRow = {
   tone: Tone;
 };
 
+type UploadedVideoRow = {
+  id: string;
+  dataset_id: string;
+  file_name: string;
+  source_type: string | null;
+  storage_path: string | null;
+  created_at: string;
+};
+
+type UploadedVideoDatasetRow = {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  scenes_count: number;
+};
+
 export type DataSourceStatus = {
   source: "supabase" | "fallback";
   label: "Live Supabase" | "Demo fallback";
@@ -65,6 +82,17 @@ export type DataSourceStatus = {
 export type DataResult<T> = {
   data: T;
   status: DataSourceStatus;
+};
+
+export type UploadedVideoQueueItem = {
+  datasetCode: string;
+  datasetName: string;
+  fileName: string;
+  sourceType: string;
+  datasetStatus: string;
+  hasStoragePath: boolean;
+  scenesCount: number;
+  uploadedAt: string;
 };
 
 const liveSupabaseStatus: DataSourceStatus = {
@@ -301,6 +329,71 @@ export async function getDataDictionAuditEventsResult(): Promise<DataResult<Audi
   }
 }
 
+export async function getDataDictionUploadedVideosResult(): Promise<
+  DataResult<UploadedVideoQueueItem[]>
+> {
+  const client = getDataDictionClient();
+  if (!client) return fallbackResult([], missingEnvironmentReason());
+
+  try {
+    const { data: videos, error: videosError } = await client
+      .from("datadiction_videos")
+      .select("id, dataset_id, file_name, source_type, storage_path, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (videosError) {
+      return fallbackResult(
+        [],
+        queryFailureReason("datadiction_videos", videosError.message),
+      );
+    }
+
+    if (!videos || videos.length === 0) {
+      return liveResult([]);
+    }
+
+    const videoRows = videos as UploadedVideoRow[];
+    const datasetIds = Array.from(new Set(videoRows.map((video) => video.dataset_id)));
+    const { data: datasets, error: datasetsError } = await client
+      .from("datadiction_datasets")
+      .select("id, code, name, status, scenes_count")
+      .in("id", datasetIds);
+
+    if (datasetsError) {
+      return fallbackResult(
+        [],
+        queryFailureReason("datadiction_datasets", datasetsError.message),
+      );
+    }
+
+    const datasetRows = (datasets ?? []) as UploadedVideoDatasetRow[];
+    const datasetById = new Map(datasetRows.map((dataset) => [dataset.id, dataset]));
+
+    return liveResult(
+      videoRows.map((video) => {
+        const dataset = datasetById.get(video.dataset_id);
+
+        return {
+          datasetCode: dataset?.code ?? "Unknown dataset",
+          datasetName: dataset?.name ?? "Unknown dataset",
+          fileName: video.file_name,
+          sourceType: video.source_type ?? "Unknown",
+          datasetStatus: dataset?.status ?? "Unknown",
+          hasStoragePath: Boolean(video.storage_path),
+          scenesCount: dataset?.scenes_count ?? 0,
+          uploadedAt: formatKstDateTime(video.created_at),
+        };
+      }),
+    );
+  } catch (error) {
+    return fallbackResult(
+      [],
+      queryFailureReason("datadiction_videos", unknownErrorMessage(error)),
+    );
+  }
+}
+
 
 export type DatasetDetailRecord = Dataset & {
   rowId?: string;
@@ -406,6 +499,7 @@ export type DashboardBreakdownItem = {
 
 export type DashboardSummary = {
   datasetsTotal: number;
+  uploadedDatasetsTotal: number;
   scenesTotal: number;
   pendingReviewTotal: number;
   auditEventsTotal: number;
@@ -431,6 +525,11 @@ function isPendingReviewStatus(status: string) {
     normalized === "PENDING_REVIEW" ||
     normalized.includes("대기")
   );
+}
+
+function isUploadedDataset(dataset: Dataset) {
+  const status = dataset.status.trim().toUpperCase();
+  return status === "UPLOADED" || status === "NOT_PROCESSED" || dataset.scenes === 0;
 }
 
 function averagePercent<T>(items: T[], selector: (item: T) => number) {
@@ -540,6 +639,7 @@ export async function getDataDictionDashboardResult(): Promise<
   return {
     data: {
       datasetsTotal: datasets.length,
+      uploadedDatasetsTotal: datasets.filter(isUploadedDataset).length,
       scenesTotal: scenes.length,
       pendingReviewTotal: scenes.filter((scene) =>
         isPendingReviewStatus(scene.status),
