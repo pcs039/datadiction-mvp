@@ -512,9 +512,13 @@ export function DatasetTable({ datasets }: { datasets: Dataset[] }) {
   );
 }
 
-export function DashboardSidePanels() {
+export function DashboardSidePanels({
+  totalScenes = 1462,
+}: {
+  totalScenes?: number;
+} = {}) {
   return (
-    <aside className="space-y-6">
+    <div className="space-y-6">
       <Panel>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold">Recent Context Alerts</h2>
@@ -562,10 +566,10 @@ export function DashboardSidePanels() {
 
         <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
           <span className="text-sm font-bold text-slate-400">Total Scenes</span>
-          <span className="text-xl font-bold">1,462</span>
+          <span className="text-xl font-bold">{totalScenes.toLocaleString("ko-KR")}</span>
         </div>
       </Panel>
-    </aside>
+    </div>
   );
 }
 

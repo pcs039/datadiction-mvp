@@ -285,6 +285,77 @@ export async function getDataDictionAuditEventsResult(): Promise<DataResult<Audi
   }
 }
 
+
+export type DashboardSummary = {
+  datasetsTotal: number;
+  scenesTotal: number;
+  pendingReviewTotal: number;
+  auditEventsTotal: number;
+  recentAuditEvents: AuditEvent[];
+  scenes: Scene[];
+};
+
+function isPendingReviewStatus(status: string) {
+  const normalized = status.trim().toUpperCase();
+
+  return (
+    normalized === "REVIEW_REQUIRED" ||
+    normalized === "PENDING" ||
+    normalized === "PENDING_REVIEW" ||
+    normalized.includes("대기")
+  );
+}
+
+function combineDataSourceStatuses(statuses: DataSourceStatus[]): DataSourceStatus {
+  if (statuses.every((status) => status.source === "supabase")) {
+    return liveSupabaseStatus;
+  }
+
+  const reasons = Array.from(
+    new Set(
+      statuses
+        .filter((status) => status.source === "fallback")
+        .map((status) => status.reason),
+    ),
+  );
+
+  return fallbackStatus(
+    reasons.length > 0
+      ? reasons.join(" / ")
+      : "Dashboard 일부 데이터가 Supabase에서 로드되지 않아 데모 데이터를 함께 표시합니다.",
+  );
+}
+
+export async function getDataDictionDashboardResult(): Promise<
+  DataResult<DashboardSummary>
+> {
+  const [datasetsResult, scenesResult, auditEventsResult] = await Promise.all([
+    getDataDictionDatasetsResult(),
+    getDataDictionScenesResult(),
+    getDataDictionAuditEventsResult(),
+  ]);
+  const scenes = scenesResult.data;
+  const auditEvents = auditEventsResult.data;
+
+  return {
+    data: {
+      datasetsTotal: datasetsResult.data.length,
+      scenesTotal: scenes.length,
+      pendingReviewTotal: scenes.filter((scene) =>
+        isPendingReviewStatus(scene.status),
+      ).length,
+      auditEventsTotal: auditEvents.length,
+      recentAuditEvents: auditEvents.slice(0, 5),
+      scenes,
+    },
+    status: combineDataSourceStatuses([
+      datasetsResult.status,
+      scenesResult.status,
+      auditEventsResult.status,
+    ]),
+  };
+}
+
 export async function getDataDictionDatasets(): Promise<Dataset[]> {
   const result = await getDataDictionDatasetsResult();
   return result.data;
