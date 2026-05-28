@@ -11,6 +11,7 @@ import {
   toneStyles,
 } from "../../components";
 import { getDataDictionScenesResult } from "../../queries";
+import { ReviewDecisionActions } from "./review-decision-actions";
 
 export default async function SceneDetailPage({
   params,
@@ -96,22 +97,18 @@ export default async function SceneDetailPage({
               <div>
                 <h2 className="text-xl font-bold">Review Decision</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  현재 버튼은 UI 프로토타입이며 Supabase reviews 테이블에 저장하지 않습니다.
+                  선택한 action은 datadiction_scenes, datadiction_reviews, datadiction_audit_events에 저장됩니다.
                 </p>
               </div>
-              <SampleBadge label="Prototype controls" />
+              <span className="rounded-full bg-emerald-400/12 px-3 py-1 text-xs font-bold text-emerald-200 ring-1 ring-emerald-300/30">
+                Review actions
+              </span>
             </div>
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
-              <button className="rounded-lg border border-white/15 px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/7">
-                라벨 수정
-              </button>
-              <button className="rounded-lg border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 hover:bg-amber-400/15">
-                검수 보류
-              </button>
-              <button className="rounded-lg bg-emerald-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300">
-                최종 확정
-              </button>
-            </div>
+            <ReviewDecisionActions
+              canWrite={dataStatus.source === "supabase"}
+              currentStatus={scene.status}
+              sceneId={scene.id}
+            />
           </Panel>
         </div>
 
