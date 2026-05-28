@@ -1,5 +1,7 @@
 import {
   AlertRow,
+  DataSourceBadge,
+  DataSourceNotice,
   Panel,
   SceneTable,
   ScoreBar,
@@ -7,7 +9,7 @@ import {
   riskClass,
 } from "../components";
 import { alerts, type Tone } from "../data";
-import { getDataDictionScenes } from "../queries";
+import { getDataDictionScenesResult } from "../queries";
 
 const riskGroups: [string, number, Tone][] = [
   ["Portrait Rights", 74, "rose"],
@@ -17,7 +19,8 @@ const riskGroups: [string, number, Tone][] = [
 ];
 
 export default async function DiagnosticsPage() {
-  const sceneList = await getDataDictionScenes();
+  const { data: sceneList, status: dataStatus } =
+    await getDataDictionScenesResult();
   const highRiskScenes = sceneList.filter((scene) => scene.risk === "HIGH");
 
   return (
@@ -26,7 +29,10 @@ export default async function DiagnosticsPage() {
         eyebrow="Diagnostics"
         title="권리·윤리·맥락 위험 진단"
         description="DataDiction은 법률 판단을 확정하지 않고, 검수 우선순위와 위험 후보를 제안하는 방식으로 책임 범위를 분리합니다."
+        action={<DataSourceBadge status={dataStatus} />}
       />
+
+      <DataSourceNotice status={dataStatus} />
 
       <section className="grid gap-4 md:grid-cols-4">
         {riskGroups.map(([label, value, tone]) => (

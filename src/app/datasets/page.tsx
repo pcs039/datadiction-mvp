@@ -1,5 +1,7 @@
 import Link from "next/link";
 import {
+  DataSourceBadge,
+  DataSourceNotice,
   DatasetTable,
   DistributionBar,
   Panel,
@@ -7,10 +9,11 @@ import {
   ScoreBar,
 } from "../components";
 import { distribution } from "../data";
-import { getDataDictionDatasets } from "../queries";
+import { getDataDictionDatasetsResult } from "../queries";
 
 export default async function DatasetsPage() {
-  const datasetList = await getDataDictionDatasets();
+  const { data: datasetList, status: dataStatus } =
+    await getDataDictionDatasetsResult();
 
   return (
     <>
@@ -19,14 +22,19 @@ export default async function DatasetsPage() {
         title="영상자산 데이터셋 관리"
         description="기관별 영상 묶음, 장면 수, 검수율, 적합성 등급을 추적하는 MVP 데이터셋 화면입니다."
         action={
-          <Link
-            href="/analysis"
-            className="rounded-lg bg-sky-300 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-sky-200"
-          >
-            데이터셋 추가
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <DataSourceBadge status={dataStatus} />
+            <Link
+              href="/analysis"
+              className="rounded-lg bg-sky-300 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-sky-200"
+            >
+              데이터셋 추가
+            </Link>
+          </div>
         }
       />
+
+      <DataSourceNotice status={dataStatus} />
 
       <section className="grid gap-4 md:grid-cols-3">
         {datasetList.map((dataset) => (
@@ -76,7 +84,7 @@ export default async function DatasetsPage() {
         <Panel>
           <SectionHeader
             title="Dataset Registry"
-            description="MVP에서는 mock 데이터지만, 이후 videos/scenes/reviews 테이블과 연결할 수 있는 목록 구조입니다."
+            description="Supabase datadiction_datasets 테이블을 우선 조회하고, 연결 실패 시 데모 데이터로 표시합니다."
           />
           <DatasetTable datasets={datasetList} />
         </Panel>

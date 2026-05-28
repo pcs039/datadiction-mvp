@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { DataSourceStatus } from "./queries";
 import {
   alerts,
   barMetrics,
@@ -128,6 +129,41 @@ export function SectionHeader({
         ) : null}
       </div>
       {action}
+    </div>
+  );
+}
+
+export function DataSourceBadge({ status }: { status: DataSourceStatus }) {
+  const isLive = status.source === "supabase";
+  const className = [
+    "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ring-1",
+    isLive
+      ? "bg-emerald-400/12 text-emerald-200 ring-emerald-300/30"
+      : "bg-amber-400/12 text-amber-200 ring-amber-300/30",
+  ].join(" ");
+  const dotClassName = [
+    "h-2 w-2 rounded-full",
+    isLive ? "bg-emerald-300" : "bg-amber-300",
+  ].join(" ");
+
+  return (
+    <span className={className} title={status.reason}>
+      <span className={dotClassName} />
+      {status.label}
+    </span>
+  );
+}
+
+export function DataSourceNotice({ status }: { status: DataSourceStatus }) {
+  if (status.source === "supabase") return null;
+
+  return (
+    <div className="rounded-xl border border-amber-300/20 bg-amber-300/8 p-4 text-sm text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="flex flex-wrap items-center gap-3">
+        <DataSourceBadge status={status} />
+        <p className="font-bold">현재 화면은 내장 데모 데이터를 표시하고 있습니다.</p>
+      </div>
+      <p className="mt-2 leading-6 text-amber-100/75">{status.reason}</p>
     </div>
   );
 }

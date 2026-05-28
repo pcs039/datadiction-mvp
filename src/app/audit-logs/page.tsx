@@ -1,8 +1,15 @@
-import { Panel, SectionHeader, toneStyles } from "../components";
-import { getDataDictionAuditEvents } from "../queries";
+import {
+  DataSourceBadge,
+  DataSourceNotice,
+  Panel,
+  SectionHeader,
+  toneStyles,
+} from "../components";
+import { getDataDictionAuditEventsResult } from "../queries";
 
 export default async function AuditLogsPage() {
-  const auditEvents = await getDataDictionAuditEvents();
+  const { data: auditEvents, status: dataStatus } =
+    await getDataDictionAuditEventsResult();
 
   return (
     <>
@@ -10,7 +17,10 @@ export default async function AuditLogsPage() {
         eyebrow="Audit Logs"
         title="검수 이력과 모델 판단 추적"
         description="AI 라벨 생성, 검수자 수정, 위험 태그 확정, 리포트 생성까지 추적 가능한 감사 로그입니다."
+        action={<DataSourceBadge status={dataStatus} />}
       />
+
+      <DataSourceNotice status={dataStatus} />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Panel>

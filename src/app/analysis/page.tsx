@@ -1,5 +1,7 @@
 import Link from "next/link";
 import {
+  DataSourceBadge,
+  DataSourceNotice,
   Panel,
   SceneTable,
   ScoreBar,
@@ -8,7 +10,7 @@ import {
   toneStyles,
 } from "../components";
 import type { Tone } from "../data";
-import { getDataDictionScenes } from "../queries";
+import { getDataDictionScenesResult } from "../queries";
 
 const profiles = [
   ["Documentary", "인터뷰·B-roll 중심 비드라마 분석"],
@@ -17,7 +19,8 @@ const profiles = [
 ];
 
 export default async function AnalysisPage() {
-  const sceneList = await getDataDictionScenes();
+  const { data: sceneList, status: dataStatus } =
+    await getDataDictionScenesResult();
   const selectedScene = sceneList[0];
   const inferenceFields: { label: string; value: string; tone: Tone }[] = [
     ["Relation", selectedScene.relation, "blue"],
@@ -32,11 +35,16 @@ export default async function AnalysisPage() {
         title="영상 입력부터 HITL 검수까지"
         description="MVP에서는 영상 업로드, 전처리 상태, 장면 패키지, AI 추론 결과, 검수 큐까지 하나의 작업 흐름으로 연결합니다."
         action={
-          <button className="rounded-lg bg-violet-400 px-4 py-2 text-sm font-bold text-white shadow-[0_0_24px_rgba(168,85,247,0.28)]">
-            Run SceneContext Inference
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <DataSourceBadge status={dataStatus} />
+            <button className="rounded-lg bg-violet-400 px-4 py-2 text-sm font-bold text-white shadow-[0_0_24px_rgba(168,85,247,0.28)]">
+              Run SceneContext Inference
+            </button>
+          </div>
         }
       />
+
+      <DataSourceNotice status={dataStatus} />
 
       <section className="grid gap-6 xl:grid-cols-[390px_minmax(0,1fr)]">
         <Panel>
