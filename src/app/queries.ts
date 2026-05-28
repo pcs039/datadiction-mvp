@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { formatKstDateTime } from "./date";
 import {
   auditEvents as fallbackAuditEvents,
   datasets as fallbackDatasets,
@@ -161,6 +162,13 @@ function normalizeTone(tone: string): Tone {
   return "blue";
 }
 
+function formatAuditEventTimes(events: AuditEvent[]): AuditEvent[] {
+  return events.map((event) => ({
+    ...event,
+    time: formatKstDateTime(event.time),
+  }));
+}
+
 export async function getDataDictionDatasetsResult(): Promise<DataResult<Dataset[]>> {
   const client = getDataDictionClient();
   if (!client) return fallbackResult(fallbackDatasets, missingEnvironmentReason());
@@ -256,7 +264,7 @@ export async function getDataDictionScenesResult(): Promise<DataResult<Scene[]>>
 
 export async function getDataDictionAuditEventsResult(): Promise<DataResult<AuditEvent[]>> {
   const client = getDataDictionClient();
-  if (!client) return fallbackResult(fallbackAuditEvents, missingEnvironmentReason());
+  if (!client) return fallbackResult(formatAuditEventTimes(fallbackAuditEvents), missingEnvironmentReason());
 
   try {
     const { data, error } = await client
@@ -266,18 +274,18 @@ export async function getDataDictionAuditEventsResult(): Promise<DataResult<Audi
 
     if (error) {
       return fallbackResult(
-        fallbackAuditEvents,
+        formatAuditEventTimes(fallbackAuditEvents),
         queryFailureReason("datadiction_audit_events", error.message),
       );
     }
 
     if (!data || data.length === 0) {
-      return fallbackResult(fallbackAuditEvents, emptyResultReason("datadiction_audit_events"));
+      return fallbackResult(formatAuditEventTimes(fallbackAuditEvents), emptyResultReason("datadiction_audit_events"));
     }
 
     return liveResult(
       (data as AuditEventRow[]).map((row) => ({
-        time: row.event_time.slice(0, 16).replace("T", " "),
+        time: formatKstDateTime(row.event_time),
         actor: row.actor,
         action: row.action,
         target: row.target,
@@ -287,7 +295,7 @@ export async function getDataDictionAuditEventsResult(): Promise<DataResult<Audi
     );
   } catch (error) {
     return fallbackResult(
-      fallbackAuditEvents,
+      formatAuditEventTimes(fallbackAuditEvents),
       queryFailureReason("datadiction_audit_events", unknownErrorMessage(error)),
     );
   }
