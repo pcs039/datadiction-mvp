@@ -96,7 +96,7 @@ export default function DataDictionShell({ children }: { children: ReactNode }) 
                   홈
                 </Link>
                 <Link
-                  href="/reports"
+                  href="/reports?generate=suitability-statement#suitability-statement"
                   className="rounded-lg border border-violet-300/40 bg-[linear-gradient(90deg,rgba(56,189,248,0.28),rgba(168,85,247,0.78))] px-5 py-2 text-sm font-bold text-white shadow-[0_0_32px_rgba(168,85,247,0.34)]"
                 >
                   Generate Data Suitability Statement
