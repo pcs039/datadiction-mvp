@@ -23,6 +23,12 @@ type DatasetRow = {
   status: string;
 };
 
+type DatasetDetailRow = DatasetRow & {
+  id: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 type SceneOverviewRow = {
   id: string;
   time: string;
@@ -287,6 +293,101 @@ export async function getDataDictionAuditEventsResult(): Promise<DataResult<Audi
   }
 }
 
+
+export type DatasetDetailRecord = Dataset & {
+  rowId?: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type DatasetDetail = {
+  dataset: DatasetDetailRecord;
+  relatedScenes: Scene[];
+  sceneConnectionAvailable: boolean;
+  sceneConnectionMessage: string;
+};
+
+const sceneOverviewDatasetConnectionMessage =
+  "현재 datadiction_scene_overview에는 dataset_id, dataset_code, video_id 같은 dataset 연결 키가 없어 이 dataset으로 scene 목록을 직접 필터링할 수 없습니다.";
+
+function mapDatasetDetailRow(row: DatasetDetailRow): DatasetDetailRecord {
+  return {
+    rowId: row.id,
+    id: row.code,
+    name: row.name,
+    owner: row.owner_org,
+    sourceType: row.source_type,
+    videos: row.videos_count,
+    scenes: row.scenes_count,
+    reviewRate: row.review_rate,
+    suitability: row.suitability_grade,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function buildDatasetDetail(dataset: DatasetDetailRecord): DatasetDetail {
+  return {
+    dataset,
+    relatedScenes: [],
+    sceneConnectionAvailable: false,
+    sceneConnectionMessage: sceneOverviewDatasetConnectionMessage,
+  };
+}
+
+function fallbackDatasetDetail(dataset: Dataset): DatasetDetail {
+  return buildDatasetDetail({
+    ...dataset,
+    createdAt: null,
+    updatedAt: null,
+  });
+}
+
+export async function getDataDictionDatasetDetailResult(
+  datasetId: string,
+): Promise<DataResult<DatasetDetail | null>> {
+  const normalizedId = decodeURIComponent(datasetId).trim();
+  const fallbackDataset = fallbackDatasets.find(
+    (dataset) => dataset.id === normalizedId,
+  );
+  const client = getDataDictionClient();
+
+  if (!client) {
+    return fallbackResult(
+      fallbackDataset ? fallbackDatasetDetail(fallbackDataset) : null,
+      missingEnvironmentReason(),
+    );
+  }
+
+  try {
+    const { data, error } = await client
+      .from("datadiction_datasets")
+      .select(
+        "id, code, name, owner_org, source_type, videos_count, scenes_count, review_rate, suitability_grade, status, created_at, updated_at",
+      )
+      .eq("code", normalizedId)
+      .maybeSingle();
+
+    if (error) {
+      return fallbackResult(
+        fallbackDataset ? fallbackDatasetDetail(fallbackDataset) : null,
+        queryFailureReason("datadiction_datasets", error.message),
+      );
+    }
+
+    if (!data) {
+      return liveResult(null);
+    }
+
+    return liveResult(buildDatasetDetail(mapDatasetDetailRow(data as DatasetDetailRow)));
+  } catch (error) {
+    return fallbackResult(
+      fallbackDataset ? fallbackDatasetDetail(fallbackDataset) : null,
+      queryFailureReason("datadiction_datasets", unknownErrorMessage(error)),
+    );
+  }
+}
 
 export type DashboardBreakdownItem = {
   label: string;

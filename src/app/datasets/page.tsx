@@ -38,44 +38,55 @@ export default async function DatasetsPage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         {datasetList.map((dataset) => (
-          <Panel key={dataset.id}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                  {dataset.id}
-                </p>
-                <h2 className="mt-2 text-xl font-bold">{dataset.name}</h2>
+          <Panel
+            key={dataset.id}
+            className="transition hover:border-sky-300/30 hover:bg-sky-300/5"
+          >
+            <Link
+              href={"/datasets/" + dataset.id}
+              className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-300/50"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                    {dataset.id}
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold hover:text-sky-200">
+                    {dataset.name}
+                  </h2>
+                </div>
+                <span className="rounded-full bg-white/8 px-2.5 py-1 text-xs font-bold text-slate-300 ring-1 ring-white/10">
+                  {dataset.status}
+                </span>
               </div>
-              <span className="rounded-full bg-white/8 px-2.5 py-1 text-xs font-bold text-slate-300 ring-1 ring-white/10">
-                {dataset.status}
-              </span>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              {dataset.owner} · {dataset.sourceType}
-            </p>
-            <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-lg bg-white/5 p-3">
-                <p className="text-2xl font-bold">{dataset.videos}</p>
-                <p className="mt-1 text-xs text-slate-500">videos</p>
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                {dataset.owner} · {dataset.sourceType}
+              </p>
+              <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-lg bg-white/5 p-3">
+                  <p className="text-2xl font-bold">{dataset.videos}</p>
+                  <p className="mt-1 text-xs text-slate-500">videos</p>
+                </div>
+                <div className="rounded-lg bg-white/5 p-3">
+                  <p className="text-2xl font-bold">{dataset.scenes}</p>
+                  <p className="mt-1 text-xs text-slate-500">scenes</p>
+                </div>
+                <div className="rounded-lg bg-white/5 p-3">
+                  <p className="text-2xl font-bold text-amber-200">
+                    {dataset.suitability}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">grade</p>
+                </div>
               </div>
-              <div className="rounded-lg bg-white/5 p-3">
-                <p className="text-2xl font-bold">{dataset.scenes}</p>
-                <p className="mt-1 text-xs text-slate-500">scenes</p>
+              <div className="mt-5">
+                <ScoreBar
+                  label="Review Coverage"
+                  value={dataset.reviewRate}
+                  tone={dataset.reviewRate > 70 ? "green" : "gold"}
+                />
               </div>
-              <div className="rounded-lg bg-white/5 p-3">
-                <p className="text-2xl font-bold text-amber-200">
-                  {dataset.suitability}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">grade</p>
-              </div>
-            </div>
-            <div className="mt-5">
-              <ScoreBar
-                label="Review Coverage"
-                value={dataset.reviewRate}
-                tone={dataset.reviewRate > 70 ? "green" : "gold"}
-              />
-            </div>
+              <p className="mt-5 text-sm font-bold text-sky-300">상세 보기</p>
+            </Link>
           </Panel>
         ))}
       </section>

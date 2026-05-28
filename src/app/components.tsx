@@ -495,7 +495,12 @@ export function DatasetTable({ datasets }: { datasets: Dataset[] }) {
           {datasets.map((dataset) => (
             <tr key={dataset.id} className="hover:bg-white/5">
               <td className="py-4 pr-4">
-                <p className="font-bold text-slate-100">{dataset.name}</p>
+                <Link
+                  href={"/datasets/" + dataset.id}
+                  className="font-bold text-slate-100 hover:text-sky-300"
+                >
+                  {dataset.name}
+                </Link>
                 <p className="mt-1 text-xs text-slate-500">{dataset.id}</p>
               </td>
               <td className="px-4 py-4 text-slate-300">{dataset.owner}</td>
