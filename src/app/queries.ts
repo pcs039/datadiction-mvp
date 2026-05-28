@@ -3,8 +3,10 @@ import {
   auditEvents as fallbackAuditEvents,
   datasets as fallbackDatasets,
   scenes as fallbackScenes,
+  type Alert,
   type AuditEvent,
   type Dataset,
+  type Distribution,
   type Scene,
   type Tone,
 } from "./data";
@@ -286,6 +288,13 @@ export async function getDataDictionAuditEventsResult(): Promise<DataResult<Audi
 }
 
 
+export type DashboardBreakdownItem = {
+  label: string;
+  value: number;
+  count: number;
+  tone: Tone;
+};
+
 export type DashboardSummary = {
   datasetsTotal: number;
   scenesTotal: number;
@@ -293,7 +302,15 @@ export type DashboardSummary = {
   auditEventsTotal: number;
   recentAuditEvents: AuditEvent[];
   scenes: Scene[];
+  averageConfidence: number;
+  averageSuitability: number;
+  riskBreakdown: DashboardBreakdownItem[];
+  contextAlerts: Alert[];
+  datasetDistribution: Distribution[];
+  sourceTypeShares: [string, string][];
 };
+
+const distributionTones: Tone[] = ["violet", "blue", "green", "gold", "rose", "slate"];
 
 function isPendingReviewStatus(status: string) {
   const normalized = status.trim().toUpperCase();
@@ -304,6 +321,77 @@ function isPendingReviewStatus(status: string) {
     normalized === "PENDING_REVIEW" ||
     normalized.includes("대기")
   );
+}
+
+function averagePercent<T>(items: T[], selector: (item: T) => number) {
+  if (items.length === 0) return 0;
+  const total = items.reduce((sum, item) => sum + selector(item), 0);
+  return Math.round((total / items.length) * 10) / 10;
+}
+
+function percentage(part: number, total: number) {
+  if (total === 0) return 0;
+  return Math.round((part / total) * 100);
+}
+
+function riskTone(risk: Scene["risk"]): Tone {
+  if (risk === "HIGH") return "rose";
+  if (risk === "MEDIUM") return "gold";
+  return "green";
+}
+
+function buildRiskBreakdown(scenes: Scene[]): DashboardBreakdownItem[] {
+  const total = scenes.length;
+  const high = scenes.filter((scene) => scene.risk === "HIGH").length;
+  const medium = scenes.filter((scene) => scene.risk === "MEDIUM").length;
+  const low = scenes.filter((scene) => scene.risk === "LOW").length;
+  const pending = scenes.filter((scene) => isPendingReviewStatus(scene.status)).length;
+
+  return [
+    { label: "High risk", value: percentage(high, total), count: high, tone: "rose" },
+    { label: "Medium risk", value: percentage(medium, total), count: medium, tone: "gold" },
+    { label: "Low risk", value: percentage(low, total), count: low, tone: "green" },
+    { label: "Review pending", value: percentage(pending, total), count: pending, tone: "blue" },
+  ];
+}
+
+function buildContextAlerts(scenes: Scene[]): Alert[] {
+  return scenes
+    .filter((scene) => scene.risk === "HIGH" || isPendingReviewStatus(scene.status))
+    .slice(0, 4)
+    .map((scene) => ({
+      id: scene.id,
+      title: scene.risk + " review signal",
+      detail:
+        scene.tags.length > 0
+          ? scene.tags.slice(0, 2).join(", ") + " · " + scene.summary
+          : scene.summary,
+      tone: riskTone(scene.risk),
+    }));
+}
+
+function buildDatasetDistribution(datasets: Dataset[]): Distribution[] {
+  const sourceTotals = new Map<string, number>();
+
+  for (const dataset of datasets) {
+    const label = dataset.sourceType || "Unknown";
+    const weight = dataset.scenes > 0 ? dataset.scenes : 1;
+    sourceTotals.set(label, (sourceTotals.get(label) ?? 0) + weight);
+  }
+
+  const total = Array.from(sourceTotals.values()).reduce((sum, value) => sum + value, 0);
+
+  return Array.from(sourceTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, count], index) => ({
+      label,
+      value: percentage(count, total),
+      tone: distributionTones[index % distributionTones.length],
+    }));
+}
+
+function buildSourceTypeShares(distribution: Distribution[]): [string, string][] {
+  return distribution.map((item) => [item.label, item.value + "%"]);
 }
 
 function combineDataSourceStatuses(statuses: DataSourceStatus[]): DataSourceStatus {
@@ -334,12 +422,14 @@ export async function getDataDictionDashboardResult(): Promise<
     getDataDictionScenesResult(),
     getDataDictionAuditEventsResult(),
   ]);
+  const datasets = datasetsResult.data;
   const scenes = scenesResult.data;
   const auditEvents = auditEventsResult.data;
+  const datasetDistribution = buildDatasetDistribution(datasets);
 
   return {
     data: {
-      datasetsTotal: datasetsResult.data.length,
+      datasetsTotal: datasets.length,
       scenesTotal: scenes.length,
       pendingReviewTotal: scenes.filter((scene) =>
         isPendingReviewStatus(scene.status),
@@ -347,6 +437,12 @@ export async function getDataDictionDashboardResult(): Promise<
       auditEventsTotal: auditEvents.length,
       recentAuditEvents: auditEvents.slice(0, 5),
       scenes,
+      averageConfidence: averagePercent(scenes, (scene) => scene.confidence),
+      averageSuitability: averagePercent(scenes, (scene) => scene.suitability),
+      riskBreakdown: buildRiskBreakdown(scenes),
+      contextAlerts: buildContextAlerts(scenes),
+      datasetDistribution,
+      sourceTypeShares: buildSourceTypeShares(datasetDistribution),
     },
     status: combineDataSourceStatuses([
       datasetsResult.status,

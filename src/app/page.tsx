@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  BarChart,
   DashboardSidePanels,
   DataSourceBadge,
   DataSourceNotice,
@@ -8,18 +7,25 @@ import {
   LineChart,
   MetricCard,
   Panel,
+  SampleBadge,
   SceneTable,
+  ScoreBar,
   SectionHeader,
   toneStyles,
 } from "./components";
 import type { AuditEvent, Metric } from "./data";
 import {
   getDataDictionDashboardResult,
+  type DashboardBreakdownItem,
   type DashboardSummary,
 } from "./queries";
 
 function formatCount(value: number) {
   return new Intl.NumberFormat("ko-KR").format(value);
+}
+
+function formatPercent(value: number) {
+  return value.toFixed(1) + "%";
 }
 
 function buildDashboardMetrics(summary: DashboardSummary): Metric[] {
@@ -113,6 +119,35 @@ function RecentAuditEventsPanel({ events }: { events: AuditEvent[] }) {
   );
 }
 
+function RiskAnalysisPanel({ items }: { items: DashboardBreakdownItem[] }) {
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Scene Risk & Review Analysis</h2>
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            datadiction_scene_overview의 risk/status를 집계한 운영 지표입니다.
+          </p>
+        </div>
+        <span className="rounded-full bg-emerald-400/12 px-3 py-1 text-xs font-bold text-emerald-200 ring-1 ring-emerald-300/30">
+          Computed from Supabase
+        </span>
+      </div>
+
+      <div className="mt-6 grid gap-5 md:grid-cols-2">
+        {items.map((item) => (
+          <ScoreBar
+            key={item.label}
+            label={item.label + " · " + item.count + "건"}
+            value={item.value}
+            tone={item.tone}
+          />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 export default async function DataDictionDashboardPage() {
   const { data: dashboard, status: dataStatus } =
     await getDataDictionDashboardResult();
@@ -150,37 +185,35 @@ export default async function DataDictionDashboardPage() {
           <Panel className="min-h-[390px]">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold">
-                  Context Audit Trends (Last 30 Scenes)
-                </h2>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-xl font-bold">
+                    Context Audit Trends (Last 30 Scenes)
+                  </h2>
+                  <SampleBadge label="Sample visualization" />
+                </div>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                  상단 평균값은 Supabase 장면 데이터 기준입니다. 아래 추세 곡선은 시계열 테이블 연결 전 샘플 시각화입니다.
+                </p>
                 <div className="mt-4 flex flex-wrap gap-5 text-sm font-semibold text-slate-300">
-                  <Legend tone="violet" label="Context Accuracy" />
-                  <Legend tone="blue" label="Video Integrity" />
+                  <Legend tone="violet" label="Avg Confidence" />
+                  <Legend tone="blue" label="Avg Suitability" />
                 </div>
               </div>
               <div className="flex items-end gap-4">
-                <p className="text-4xl font-bold text-violet-300">72.4%</p>
+                <p className="text-4xl font-bold text-violet-300">
+                  {formatPercent(dashboard.averageConfidence)}
+                </p>
                 <span className="mb-1 h-8 w-px bg-white/15" />
-                <p className="text-4xl font-bold text-sky-300">88.1%</p>
+                <p className="text-4xl font-bold text-sky-300">
+                  {formatPercent(dashboard.averageSuitability)}
+                </p>
               </div>
             </div>
 
             <LineChart />
           </Panel>
 
-          <Panel>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold">Video & Text Model Analysis</h2>
-                <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Comparison for risk and context categories
-                </p>
-              </div>
-              <span className="text-2xl leading-none text-slate-500">...</span>
-            </div>
-
-            <BarChart />
-          </Panel>
+          <RiskAnalysisPanel items={dashboard.riskBreakdown} />
 
           <Panel>
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -204,7 +237,13 @@ export default async function DataDictionDashboardPage() {
 
         <aside className="space-y-6">
           <RecentAuditEventsPanel events={dashboard.recentAuditEvents} />
-          <DashboardSidePanels totalScenes={dashboard.scenesTotal} />
+          <DashboardSidePanels
+            contextAlerts={dashboard.contextAlerts}
+            dataStatus={dataStatus}
+            datasetDistribution={dashboard.datasetDistribution}
+            sourceTypeShares={dashboard.sourceTypeShares}
+            totalScenes={dashboard.scenesTotal}
+          />
         </aside>
       </section>
     </>

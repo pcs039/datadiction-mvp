@@ -2,11 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { DataSourceStatus } from "./queries";
 import {
-  alerts,
   barMetrics,
-  distribution,
   scenes as fallbackScenes,
-  sourceTypes,
   workflowStages,
   type Alert,
   type Dataset,
@@ -165,6 +162,19 @@ export function DataSourceNotice({ status }: { status: DataSourceStatus }) {
       </div>
       <p className="mt-2 leading-6 text-amber-100/75">{status.reason}</p>
     </div>
+  );
+}
+
+export function SampleBadge({
+  label = "Sample visualization",
+}: {
+  label?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full bg-slate-400/12 px-3 py-1 text-xs font-bold text-slate-200 ring-1 ring-slate-300/25">
+      <span className="h-2 w-2 rounded-full bg-slate-300" />
+      {label}
+    </span>
   );
 }
 
@@ -513,31 +523,65 @@ export function DatasetTable({ datasets }: { datasets: Dataset[] }) {
 }
 
 export function DashboardSidePanels({
-  totalScenes = 1462,
+  contextAlerts = [],
+  dataStatus,
+  datasetDistribution = [],
+  sourceTypeShares = [],
+  totalScenes = 0,
 }: {
+  contextAlerts?: Alert[];
+  dataStatus?: DataSourceStatus;
+  datasetDistribution?: Distribution[];
+  sourceTypeShares?: [string, string][];
   totalScenes?: number;
 } = {}) {
   return (
     <div className="space-y-6">
       <Panel>
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Recent Context Alerts</h2>
-          <span className="text-2xl leading-none text-slate-500">...</span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold">Recent Context Alerts</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              scene_overview의 risk/status에서 생성한 운영 알림입니다.
+            </p>
+          </div>
+          {dataStatus ? <DataSourceBadge status={dataStatus} /> : null}
         </div>
 
         <div className="mt-5 space-y-4">
-          {alerts.map((alert) => (
-            <AlertRow key={alert.id} alert={alert} />
-          ))}
+          {contextAlerts.length > 0 ? (
+            contextAlerts.map((alert) => (
+              <AlertRow key={alert.id} alert={alert} />
+            ))
+          ) : (
+            <p className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-500">
+              표시할 context alert가 없습니다.
+            </p>
+          )}
         </div>
       </Panel>
 
       <Panel>
-        <h2 className="text-xl font-bold">Dataset Distribution</h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold">Dataset Distribution</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              datadiction_datasets의 source type과 scene count를 기준으로 계산합니다.
+            </p>
+          </div>
+          {dataStatus ? <DataSourceBadge status={dataStatus} /> : null}
+        </div>
+
         <div className="mt-6 space-y-5">
-          {distribution.map((item) => (
-            <DistributionBar key={item.label} item={item} />
-          ))}
+          {datasetDistribution.length > 0 ? (
+            datasetDistribution.map((item) => (
+              <DistributionBar key={item.label} item={item} />
+            ))
+          ) : (
+            <p className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-500">
+              표시할 dataset distribution이 없습니다.
+            </p>
+          )}
         </div>
 
         <div className="mt-7 space-y-3 border-t border-white/10 pt-5">
@@ -545,28 +589,39 @@ export function DashboardSidePanels({
             <span>Source Types</span>
             <span>Share</span>
           </div>
-          {sourceTypes.map(([label, value], index) => (
-            <div key={label} className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2 text-slate-400">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    index === 0
-                      ? "bg-violet-400"
-                      : index === 1
-                        ? "bg-sky-400"
-                        : "bg-slate-600"
-                  }`}
-                />
-                {label}
-              </span>
-              <span className="font-semibold text-slate-300">{value}</span>
-            </div>
-          ))}
+          {sourceTypeShares.length > 0 ? (
+            sourceTypeShares.map(([label, value], index) => {
+              const dotClassName = [
+                "h-2 w-2 rounded-full",
+                index === 0
+                  ? "bg-violet-400"
+                  : index === 1
+                    ? "bg-sky-400"
+                    : index === 2
+                      ? "bg-emerald-400"
+                      : "bg-slate-600",
+              ].join(" ");
+
+              return (
+                <div key={label} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-slate-400">
+                    <span className={dotClassName} />
+                    {label}
+                  </span>
+                  <span className="font-semibold text-slate-300">{value}</span>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-sm text-slate-500">표시할 source type이 없습니다.</p>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
           <span className="text-sm font-bold text-slate-400">Total Scenes</span>
-          <span className="text-xl font-bold">{totalScenes.toLocaleString("ko-KR")}</span>
+          <span className="text-xl font-bold">
+            {totalScenes.toLocaleString("ko-KR")}
+          </span>
         </div>
       </Panel>
     </div>
