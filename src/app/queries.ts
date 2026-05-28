@@ -426,6 +426,7 @@ function isPendingReviewStatus(status: string) {
 
   return (
     normalized === "REVIEW_REQUIRED" ||
+    normalized === "IN_REVIEW" ||
     normalized === "PENDING" ||
     normalized === "PENDING_REVIEW" ||
     normalized.includes("대기")

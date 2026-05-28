@@ -20,6 +20,9 @@ import {
   type DashboardSummary,
 } from "./queries";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function formatCount(value: number) {
   return new Intl.NumberFormat("ko-KR").format(value);
 }
@@ -48,7 +51,7 @@ function buildDashboardMetrics(summary: DashboardSummary): Metric[] {
       label: "Review Pending",
       value: formatCount(summary.pendingReviewTotal),
       delta: "pending",
-      caption: "REVIEW_REQUIRED/PENDING 상태",
+      caption: "REVIEW_REQUIRED/PENDING/IN_REVIEW 상태",
       tone: summary.pendingReviewTotal > 0 ? "rose" : "green",
     },
     {

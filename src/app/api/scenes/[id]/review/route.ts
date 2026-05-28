@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 
 type ReviewDecision = "label_revision" | "hold" | "confirm";
@@ -72,6 +73,14 @@ function historyFailureDetail(failures: HistoryFailure[]) {
   return failures
     .map((failure) => failure.step + ": " + failure.message)
     .join(" / ");
+}
+
+function revalidateReviewDecisionPaths(sceneCode: string) {
+  const scenePath = "/scenes/" + encodeURIComponent(sceneCode);
+
+  for (const path of ["/", "/diagnostics", "/analysis", scenePath, "/audit-logs"]) {
+    revalidatePath(path);
+  }
 }
 
 function getSupabaseAdminClient() {
@@ -219,6 +228,8 @@ export async function POST(
       message: auditError.message,
     });
   }
+
+  revalidateReviewDecisionPaths(sceneRow.scene_code);
 
   if (historyFailures.length > 0) {
     return Response.json(
